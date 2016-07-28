@@ -1,0 +1,12 @@
+{
+  "name": "oracledb",
+  "main": "index.d.ts",
+  "homepage": "http://www.oracle.com/technetwork/database/database-technologies/scripting-languages/node_js/",
+  "version": "1.10.1",
+  "globalDevDependencies": {
+    "node": "registry:env/node#6.0.0+20160723033700"
+  },
+  "devDependencies": {
+    "blue-tape": "registry:npm/blue-tape#0.2.0+20160723033700"
+  }
+}
