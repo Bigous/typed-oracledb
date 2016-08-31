@@ -2,7 +2,7 @@
   "name": "oracledb",
   "main": "index.d.ts",
   "homepage": "http://www.oracle.com/technetwork/database/database-technologies/scripting-languages/node_js/",
-  "version": "1.11",
+  "version": "1.11.0",
   "globalDependencies": {
     "node": "registry:env/node#6.0.0+20160825160117"
   },
