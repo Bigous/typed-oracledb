@@ -1,3 +1,7 @@
 {
-  "extends": "tslint-config-typings"
+  "extends": "tslint-config-typings",
+  "rules" : {
+    "indent": "tabs",
+    "interface-name": [true, "always-prefix"]
+  }
 }

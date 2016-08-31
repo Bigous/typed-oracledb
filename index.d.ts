@@ -1,4 +1,5 @@
-import * as stream from "stream";
+import * as stream from 'stream';
+import * as events from 'events';
 
 declare namespace oracledb {
 
@@ -37,6 +38,7 @@ declare namespace oracledb {
 		write?(data: Buffer, callback: (err: any) => void): void;
 	}
 
+	/* tslint:disable-next-line:interface-name */
 	interface Lob extends stream.Duplex {
 		iLob: ILob;
 		/** This corresponds to the size used by the Oracle LOB layer when accessing or modifying the LOB value. */
@@ -76,6 +78,8 @@ declare namespace oracledb {
 		connectString: string;
 		stmtCacheSize?: number;
 		externalAuth?: boolean;
+		/** If not passed, "default" will be used. */
+		poolAlias?: string;
 	}
 
 	interface IPoolAttributes extends IConnectionAttributes {
@@ -209,7 +213,8 @@ declare namespace oracledb {
 		toQueryStream(): stream.Readable;
 	}
 
-	interface IConnection {
+	/** Emits "_after_close" event */
+	interface IConnection extends events.EventEmitter {
 		/**
 		 * The action attribute for end-to-end application tracing.
 		 * This is a write-only property. Displaying a Connection object will show a value of null for this attribute. See End-to-end Tracing, Mid-tier Authentication, and Auditing.
@@ -377,10 +382,11 @@ declare namespace oracledb {
 		 * Send a rollback requisition to database.
 		 * @returns	A void Promise on rollback done.
 		 */
-		rollback(): IPromise<void>
+		rollback(): IPromise<void>;
 	}
 
-	interface IConnectionPool {
+	/** Emits "_after_close" event */
+	interface IConnectionPool extends events.EventEmitter {
 		/**
 		 * The number of currently active connections in the connection pool i.e. the number of connections currently checked-out using getConnection().
 		 */
@@ -389,6 +395,10 @@ declare namespace oracledb {
 		 * The number of currently open connections in the underlying connection pool.
 		 */
 		connectionsOpen: number;
+		/**
+		 * The readonly alias of this pool in the connection pool cache. An alias cannot be changed once the pool has been created.
+		 */
+		poolAlias: string;
 		/**
 		 * The number of connections that are opened whenever a connection request exceeds the number of currently open connections.
 		 */
@@ -464,7 +474,34 @@ declare namespace oracledb {
 		terminate(): IPromise<void>;
 	}
 
+	/* tslint:disable no-unused-variable */
 	const DEFAULT: number;
+	/** Metadata return type */
+	const DB_TYPE_VARCHAR: number;
+	/** Metadata return type */
+	const DB_TYPE_NUMBER: number;
+	/** Metadata return type */
+	const DB_TYPE_DATE: number;
+	/** Metadata return type */
+	const DB_TYPE_RAW: number;
+	/** Metadata return type */
+	const DB_TYPE_CHAR: number;
+	/** Metadata return type */
+	const DB_TYPE_BINARY_FLOAT: number;
+	/** Metadata return type */
+	const DB_TYPE_BINARY_DOUBLE: number;
+	/** Metadata return type */
+	const DB_TYPE_ROWID: number;
+	/** Metadata return type */
+	const DB_TYPE_CLOB: number;
+	/** Metadata return type */
+	const DB_TYPE_BLOB: number;
+	/** Metadata return type */
+	const DB_TYPE_TIMESTAMP: number;
+	/** Metadata return type */
+	const DB_TYPE_TIMESTAMP_TZ: number;
+	/** Metadata return type */
+	const DB_TYPE_TIMESTAMP_LTZ: number;
 	/** Data type */
 	const STRING: number;
 	/** Data type */
@@ -495,6 +532,7 @@ declare namespace oracledb {
 	 */
 	function newLob(iLob: ILob): Lob;
 
+	/* tslint:disable no-var-keyword */
 	/** Default transaction behaviour of auto commit for each statement. */
 	var autoCommit: boolean;
 	/**
@@ -522,18 +560,36 @@ declare namespace oracledb {
 	var oracleClientVersion: number;
 	/** Default format for returning rows. When ARRAY, it will return Array<Array<any>>. When OBJECT, it will return Array<Object>. */
 	var outFormat: number;
-	/** Default number of connections to increment when available connections reach 0 in created pools. poolMax will be respected.*/
+	/** Default number of connections to increment when available connections reach 0 in created pools. poolMax will be respected. */
 	var poolIncrement: number;
 	/** Default maximum connections in created pools */
 	var poolMax: number;
 	/** Default minimum connections in created pools */
 	var poolMin: number;
-	/** Default timeout for unused connections in pool to be released. poolMin will be respected.*/
+	/** Default timeout for unused connections in pool to be released. poolMin will be respected. */
 	var poolTimeout: number;
-	/** Default number of rows that the driver will fetch in each query.*/
+	/** Default number of rows that the driver will fetch in each query. */
 	var prefetchRows: number;
 	/**
-	 * Node-oracledb supports Promises on all methods. The standard Promise library is used in Node 0.12 and greater. Promise support is not enabled by default in Node 0.10.
+	 * Readonly reference to the native oracledb.
+	 */
+	var Oracledb: any;
+	/**
+	 * Readonly reference to the native connection object.
+	 */
+	var Connection: any;
+	/**
+	 * Readonly reference to the native Lob object.
+	 */
+	var Lob: any;
+	/**
+	 * Reference to the native ResultSet object.
+	 */
+	var ResultSet: any;
+	/**
+	 * Node-oracledb supports Promises on all methods. The standard Promise library is used in Node 0.12 and greater.
+	 * Promise support is not enabled by default in Node 0.10.
+	 * You can change the Promisse library to any default ES6 compatible library (like bluebird).
 	 */
 	var Promise: any;
 	/**
@@ -547,7 +603,7 @@ declare namespace oracledb {
 	 * The default value is 60000.
 	 */
 	var queueTimeout: number;
-	/** Default size of statements cache. Used to speed up creating queries.*/
+	/** Default size of statements cache. Used to speed up creating queries. */
 	var stmtCacheSize: number;
 	/** node-oracledb driver version. */
 	var version: number;
@@ -568,12 +624,47 @@ declare namespace oracledb {
 	function createPool(poolAttributes: IPoolAttributes): IPromise< IConnectionPool >;
 
 	/**
+	 * Retrieves a connection pool from cache. If it does not exists, an error will be thrown.
+	 * @param {string} alias The index of the cache for the pool. If none is passed, it will use the default one.
+	 * @returns The connection pool or throws an error if it was not found.
+	 */
+	function getPool(poolAlias?: string): IConnectionPool;
+
+	/**
+	 * Creates a connection with the database - the pool alias will be "default".
+	 * @param  {(err:any,connection:IConnection)=>void} callback Callback to run when the connection gets stablished or when some error occurs.
+	 * @returns void
+	 */
+	function getConnection(callback: (err: any, connection: IConnection) => void): void;
+
+	/**
+	 * Creates a connection with the database.
+	 * @param  {string} poolAlias Poll from which the connection should be retrieved.
+	 * @param  {(err:any,connection:IConnection)=>void} callback Callback to run when the connection gets stablished or when some error occurs.
+	 * @returns void
+	 */
+	function getConnection(poolAlias: string, callback: (err: any, connection: IConnection) => void): void;
+
+	/**
 	 * Creates a connection with the database.
 	 * @param  {IConnectionAttributes} connectionAttributes Parameters to stablish the connection.
 	 * @param  {(err:any,connection:IConnection)=>void} callback Callback to run when the connection gets stablished or when some error occurs.
 	 * @returns void
 	 */
 	function getConnection(connectionAttributes: IConnectionAttributes, callback: (err: any, connection: IConnection) => void): void;
+
+	/**
+	 * Creates a connection with the database. The pool name will be "default".
+	 * @returns  {(connection:IConnection)=>any} Promise with the connection.
+	 */
+	function getConnection(): IPromise< IConnection >;
+
+	/**
+	 * Creates a connection with the database.
+	 * @param  {string} poolAlias Poll from which the connection should be retrieved.
+	 * @returns  {(connection:IConnection)=>any} Promise with the connection.
+	 */
+	function getConnection(poolAlias: string): IPromise< IConnection >;
 
 	/**
 	 * Creates a connection with the database.
